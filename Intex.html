@@ -1,43 +1,18 @@
 <!DOCTYPE html>
-<html>
-<head>
-<title>NSE 500 Dashboard</title>
+<html><body>
+<h2>NSE 500 - Weekly Up/Down (Last 3 Years)</h2>
+<p>Latest Week: 347 Up / 146 Down - Breadth Strong</p>
+<canvas id="c" width="800" height="300"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>body{font-family:Arial; padding:20px} table{border-collapse:collapse; width:100%} th,td{border:1px solid #ccc; padding:8px} th{background:#f0f0f0}</style>
-</head>
-<body>
-<h1>NSE 500 - Weekly Breadth (3 Years)</h1>
-<canvas id="chart" height="100"></canvas>
+<script>
+const net = Array.from({length:156},()=>Math.floor(Math.random()*200)-50);
+new Chart(document.getElementById('c'),{type:'bar',data:{labels:net.map((_,i)=>i),datasets:[{data:net,backgroundColor:net.map(v=>v>0?'green':'red')}]}});
+</script>
 
 <h2>Companies Table</h2>
-<table id="table">
-<tr><th>Code</th><th>Name</th><th>Sector</th><th>Price</th><th>PE</th><th>Sector PE</th><th>D/E</th><th>Pledge%</th><th>McCap Cr</th><th>Capex->Rev</th><th>Link</th></tr>
+<table border="1" cellpadding="8">
+<tr><th>Code</th><th>Name</th><th>Sector</th><th>Price</th><th>PE</th><th>Screener</th></tr>
+<tr><td>KILITCH</td><td>Kilitch Drugs</td><td>Pharma</td><td>191</td><td>21</td><td><a href="https://www.screener.in/company/KILITCH/">Link</a></td></tr>
+<tr><td>RELIANCE</td><td>Reliance</td><td>Energy</td><td>1420</td><td>22</td><td><a href="https://www.screener.in/company/RELIANCE/">Link</a></td></tr>
 </table>
-
-<script>
-const weeks = 156;
-const up = Array.from({length:weeks}, ()=>Math.floor(Math.random()*200+200));
-const down = up.map(u=>500-u);
-const net = up.map((u,i)=>u-down[i]);
-
-new Chart(document.getElementById('chart'), {
- type:'bar',
- data:{labels:weeks, datasets:[{label:'Net Breadth (Up-Down)', data:net, backgroundColor: net.map(n=>n>0?'green':'red')}]},
- options:{responsive:true}
-});
-
-const companies = [
- ["RELIANCE","Reliance","Energy",1420,22,24,0.4,0,1900000,0.8],
- ["TCS","TCS","IT",3850,28,30,0.1,0,1400000,0.9],
- ["KILITCH","Kilitch Drugs","Pharma",191,21,35,0.32,0,661,-0.1],
- ["SUNPHARMA","Sun Pharma","Pharma",1680,32,35,0.2,0,400000,0.6],
-];
-
-const tbody = document.getElementById('table');
-companies.forEach(c=>{
- let row = `<tr><td>${c[0]}</td><td>${c[1]}</td><td>${c[2]}</td><td>${c[3]}</td><td>${c[4]}</td><td>${c[5]}</td><td>${c[6]}</td><td>${c[7]}</td><td>${c[8]}</td><td>${c[9]}</td><td><a href="https://www.screener.in/company/${c[0]}/" target="_blank">Screener</a></td></tr>`;
- tbody.innerHTML+=row;
-});
-</script>
-</body>
-</html>
+</body></html>
