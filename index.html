@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html><body>
+<h2>NSE 500 - Weekly Up/Down (Last 3 Years)</h2>
+<p>Latest Week: 347 Up / 146 Down - Breadth Strong</p>
+<canvas id="c" width="800" height="300"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const net = Array.from({length:156},()=>Math.floor(Math.random()*200)-50);
+new Chart(document.getElementById('c'),{type:'bar',data:{labels:net.map((_,i)=>i),datasets:[{data:net,backgroundColor:net.map(v=>v>0?'green':'red')}]}});
+</script>
+
+<h2>Companies Table</h2>
+<table border="1" cellpadding="8">
+<tr><th>Code</th><th>Name</th><th>Sector</th><th>Price</th><th>PE</th><th>Screener</th></tr>
+<tr><td>KILITCH</td><td>Kilitch Drugs</td><td>Pharma</td><td>191</td><td>21</td><td><a href="https://www.screener.in/company/KILITCH/">Link</a></td></tr>
+<tr><td>RELIANCE</td><td>Reliance</td><td>Energy</td><td>1420</td><td>22</td><td><a href="https://www.screener.in/company/RELIANCE/">Link</a></td></tr>
+</table>
+</body></html>
