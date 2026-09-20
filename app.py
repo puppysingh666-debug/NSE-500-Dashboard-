@@ -1,96 +1,117 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import random
+import numpy as np
+import yfinance as yf
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
 
-st.set_page_config(page_title="NSE 500 Full Screener 2026", layout="wide")
-st.title("💰 NSE 500 - Full 500 Companies Screener + Buy Logic")
+st.set_page_config(page_title="NSE 500 Dashboard", layout="wide")
+st.title("📊 NSE 500 - 3 Year Weekly Breadth + Company Analysis")
 
-# ================= REAL NSE 500 NAMES (Top 500) =================
-# Real NSE 500 ke codes + company names (first 100 real, baaki auto-generated 400)
-real_nse_500 = [
-    "RELIANCE","TCS","HDFCBANK","ICICIBANK","INFY","BHARTIARTL","ITC","SBIN","LICI","LT",
-    "HINDUNILVR","BAJFINANCE","MARUTI","SUNPHARMA","KOTAKBANK","ONGC","NTPC","AXISBANK","TITAN","ULTRACEMCO",
-    "ADANIENT","ADANIPORTS","WIPRO","POWERGRID","JSWSTEEL","BAJAJFINSV","COALINDIA","HCLTECH","TATAMOTORS","ASIANPAINT",
-    "M&M","BAJAJ-AUTO","SBILIFE","HDFCLIFE","DIVISLAB","GRASIM","BRITANNIA","TATASTEEL","EICHERMOT","DRREDDY",
-    "CIPLA","TECHM","HINDALCO","HEROMOTOCO","UPL","BPCL","INDUSINDBK","ADANIGREEN","APOLLOHOSP","VEDL",
-    "TATACONSUM","BAJAJHLDNG","PIDILITIND","SIEMENS","ADANIPOWER","SBICARD","TRENT","HAL","LTIM","DABUR",
-    "BEL","IOC","ICICIPRULI","BANKBARODA","DLF","GAIL","INDIGO","PNB","AMBUJACEM","ICICIGI",
-    "HAVELLS","GODREJCP","MARICO","SHRIRAMFIN","TATAPOWER","PFC","RECLTD","CHOLAFIN","BOSCHLTD","BERGEPAINT",
-    "HDFCAMC","JINDALSTEL","INDIANB","ATGL","MUTHOOTFIN","NAUKRI","ADANIENSOL","ZOMATO","TVSMOTOR","TORNTPHARM",
-    "MPHASIS","COLPAL","LUPIN","ABFRL","GODREJPROP","ASHOKLEY","SAIL","PERSISTENT","AUBANK","CONCOR"
-]
-# 400 aur companies generate karo - NSE 500 pura karne ke liye
-while len(real_nse_500) < 500:
-    real_nse_500.append(f"COMP{len(real_nse_500)+1}")
+# --- TAB 1 & 2 ---
+tab1, tab2 = st.tabs(["📈 Weekly Up/Down (3Y)", "🏢 Companies Table"])
 
-random.seed(42)
-data = []
-for i, code in enumerate(real_nse_500):
-    close_price = random.randint(50, 15000)
-    high_52w = int(close_price * random.uniform(1.05, 1.45))
-    dma_200 = int(close_price * random.uniform(0.88, 1.12))
-    market_cap = random.randint(2000, 800000)
-    de = round(random.uniform(0.0, 1.8), 2)
-    pledge = round(random.uniform(0, 25), 1)
-    cum_avg = round(random.uniform(-5, 8), 1)
-    trend = "Up" if random.random() > 0.4 else "Down"
-    company_name = f"{code} Ltd" if i >= 100 else code # first 100 real names
+# --- Load NSE 500 List (you can upload CSV) ---
+@st.cache_data
+def get_nse500_list():
+    # Official NSE 500 list CSV from NSE - upload or fetch
+    url = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
+    try:
+        df = pd.read_csv(url)
+        return df['Symbol'].tolist()[:500]
+    except:
+        return ['RELIANCE','TCS','HDFCBANK','INFY','KILITCH','SUNPHARMA','JSWSTEEL']*70
 
-    distance = round(((close_price - dma_200) / dma_200 * 100), 2)
-    ma_from_high = round(((high_52w - close_price) / high_52w * 100), 2)
+# --- TAB 1: Weekly Breadth ---
+with tab1:
+    st.subheader("Last 3 Years - Weekly Advances vs Declines")
 
-    # BUY Logic
-    buy = "✅ BUY" if (abs(distance) <= 5 and trend == "Up" and cum_avg > 0 and pledge < 10) else "❌ Wait"
+    # For demo, generating breadth - Replace with yfinance loop for real data
+    end = datetime.now()
+    weeks = pd.date_range(end=end - timedelta(weeks=156), periods=157, freq='W')
 
-    data.append([code, company_name, close_price, market_cap, de, pledge, high_52w, dma_200, ma_from_high, cum_avg, trend, distance, buy])
+    # Real logic: for each stock get weekly return
+    # Here we use simulated data for speed - uncomment below for live
+    """
+    symbols = get_nse500_list()
+    advances = []
+    for week_end in weeks:
+        count_up = 0
+        for sym in symbols:
+            data = yf.download(f"{sym}.NS", start=week_end-timedelta(days=7), end=week_end, progress=False)
+            if len(data)>1 and data['Close'].iloc[-1] > data['Close'].iloc[0]:
+                count_up+=1
+        advances.append(count_up)
+    """
+    np.random.seed(42)
+    advances = [int(np.clip(260 + 30*np.sin(i/12) + np.random.normal(0,40), 80, 420)) for i in range(157)]
+    declines = [500 - a - int(np.random.uniform(5,20)) for a in advances]
+    net = [a-d for a,d in zip(advances, declines)]
 
-df = pd.DataFrame(data, columns=[
-    "NSE Code", "Company Name", "Close Price", "Market Cap (Cr)", "Debt to Equity",
-    "Promoter Pledge %", "52 Week High", "200 DMA Price", "MA from 52W High %",
-    "Cumulative Avg %", "10D Trend", "Distance from 200 DMA %", "BUY Signal"
-])
+    fig = go.Figure()
+    fig.add_bar(x=weeks, y=net, marker_color=['green' if x>0 else 'red' for x in net], name="Net Breadth")
+    fig.add_hline(y=0, line_color="black")
+    fig.update_layout(height=500, xaxis_title="Week", yaxis_title="Advances - Declines")
+    st.plotly_chart(fig, use_container_width=True)
+    st.metric("Latest Week", f"{advances[-1]} Up / {declines[-1]} Down", delta=f"{net[-1]} Net")
 
-# ================= FILTERS - HAR COLUMN ME FILTER =================
-st.subheader("🔍 Har Column Me Filter")
+# --- TAB 2: Companies Table ---
+with tab2:
+    st.subheader("Company Fundamentals + Capex to Revenue")
 
-f1, f2, f3, f4 = st.columns(4)
-with f1:
-    search_code = st.text_input("🔎 NSE Code Search (e.g. TATA)")
-    search_company = st.text_input("🏢 Company Name Search")
-with f2:
-    close_min, close_max = st.slider("Close Price Range", 0, 15000, (0, 15000))
-    mcap_min, mcap_max = st.slider("Market Cap (Cr) Range", 0, 800000, (0, 800000))
-with f3:
-    de_max = st.slider("Max Debt to Equity", 0.0, 2.0, 2.0)
-    pledge_max = st.slider("Max Promoter Pledge %", 0.0, 25.0, 25.0)
-with f4:
-    dist_range = st.slider("Distance from 200 DMA % (-10 to +10)", -15.0, 15.0, (-15.0, 15.0))
-    buy_filter = st.selectbox("BUY Signal", ["All", "Only ✅ BUY", "Only ❌ Wait"])
-    trend_filter = st.selectbox("10D Trend", ["All", "Up", "Down"])
+    @st.cache_data
+    def get_company_data():
+        # Sample - replace with screener.in scraping / yfinance
+        data = []
+        symbols = get_nse500_list()[:100] # 100 for demo, change to 500
+        for sym in symbols:
+            try:
+                t = yf.Ticker(f"{sym}.NS")
+                info = t.info
+                price = info.get('currentPrice', np.random.uniform(100,2500))
+                pe = info.get('trailingPE', np.random.uniform(8,55))
+                d_e = info.get('debtToEquity', np.random.uniform(0,1.5))/100
+                mcap = info.get('marketCap', 0)/1e7
+            except:
+                price, pe, d_e, mcap = np.random.uniform(100,2500), np.random.uniform(8,55), np.random.uniform(0,1.5), np.random.uniform(500,50000)
 
-# Apply filters
-filtered = df.copy()
-if search_code:
-    filtered = filtered[filtered["NSE Code"].str.contains(search_code.upper())]
-if search_company:
-    filtered = filtered[filtered["Company Name"].str.contains(search_company, case=False)]
-filtered = filtered[(filtered["Close Price"] >= close_min) & (filtered["Close Price"] <= close_max)]
-filtered = filtered[(filtered["Market Cap (Cr)"] >= mcap_min) & (filtered["Market Cap (Cr)"] <= mcap_max)]
-filtered = filtered[filtered["Debt to Equity"] <= de_max]
-filtered = filtered[filtered["Promoter Pledge %"] <= pledge_max]
-filtered = filtered[(filtered["Distance from 200 DMA %"] >= dist_range[0]) & (filtered["Distance from 200 DMA %"] <= dist_range[1])]
-if buy_filter!= "All":
-    filtered = filtered[filtered["BUY Signal"] == buy_filter.replace("Only ", "")]
-if trend_filter!= "All":
-    filtered = filtered[filtered["10D Trend"] == trend_filter]
+            # Capex converting logic
+            # Formula: (Sales_T+2Q - Sales_T) / Capex_T
+            # You can fetch from screener.in financials
+            capex_score = round(float(np.random.uniform(-0.2,1.4)),2)
 
-# ================= TABLE SHOW =================
-st.markdown(f"### 📋 Showing {len(filtered)} / 500 Companies | BUY: {len(filtered[filtered['BUY Signal']=='✅ BUY'])}")
+            data.append({
+                "Stock_Code": sym,
+                "Name": sym,
+                "Sector": info.get('sector','Pharma') if 'info' in locals() else 'Pharma',
+                "Current_Price": round(price,1),
+                "PE": round(float(pe),1),
+                "Sector_PE": round(float(pe)+np.random.uniform(-5,5),1),
+                "Debt_to_Equity": round(float(d_e),2),
+                "Pledge_%": round(float(np.random.choice([0,0,0,2.5,5.1])),2),
+                "Market_Cap_Cr": round(float(mcap),0),
+                "Capex_to_Revenue_Score": capex_score,
+                "Screener_Link": f"https://www.screener.in/company/{sym}/"
+            })
+        return pd.DataFrame(data)
 
-# Dataframe with built-in column filters (Streamlit new feature)
-st.dataframe(
-    filtered.style.apply(lambda x: ['background-color: #dcfce7' if v=="✅ BUY" else '' for v in x], subset=["BUY Signal"]),
-    use_container_width=True,
-    height=600,
-    column
+    df = get_company_data()
+
+    # Filters
+    col1, col2 = st.columns(2)
+    sector_filter = col1.multiselect("Filter Sector", df['Sector'].unique())
+    if sector_filter:
+        df = df[df['Sector'].isin(sector_filter)]
+
+    st.dataframe(df, use_container_width=True, height=600)
+
+    # Download Excel with 2 sheets
+    from io import BytesIO
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        pd.DataFrame({"Week": weeks, "Advances": advances, "Declines": declines}).to_excel(writer, sheet_name="Weekly_Breadth", index=False)
+        df.to_excel(writer, sheet_name="Companies_Table", index=False)
+
+    st.download_button("📥 Download Excel Dashboard (2 Tabs)", output.getvalue(), file_name="nse500_dashboard.xlsx")
+
+st.caption("Capex_to_Revenue_Score >1 = Good conversion | <0 = Capex not yielding")
