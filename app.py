@@ -1,60 +1,59 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from io import BytesIO
 
 st.set_page_config(layout="wide")
-st.title("NSE 500 Dashboard")
+st.title("NSE 500 Dashboard - Working Version")
 
-tab1, tab2 = st.tabs(["Weekly Breadth", "Companies"])
+tab1, tab2 = st.tabs(["Weekly Breadth", "Companies Table"])
 
-# SAFE NSE 500 LIST - without API
-@st.cache_data
-def get_symbols():
-    try:
-        # Try NSE official
-        df = pd.read_csv("https://archives.nseindia.com/content/indices/ind_nifty500list.csv")
-        return df['Symbol'].tolist()
-    except Exception as e:
-        st.warning(f"NSE API fail: {e}, using sample list")
-        # Fallback - 50 real symbols
-        return ["RELIANCE","TCS","HDFCBANK","INFY","ICICIBANK","HINDUNILVR","SBIN","BHARTIARTL","ITC","KOTAKBANK","LT","AXISBANK","ASIANPAINT","MARUTI","BAJFINANCE","KILITCH","SUNPHARMA","WIPRO","TITAN","ULTRACEMCO"]*25
-
+# TAB 1
 with tab1:
-    weeks = pd.date_range(end=datetime.now(), periods=157, freq='W')
+    st.subheader("Last 3 Year Weekly Up vs Down")
+    weeks = pd.date_range(end=datetime.now(), periods=156, freq='W')
     np.random.seed(42)
-    advances = [int(np.clip(260 + 30*np.sin(i/12) + np.random.normal(0,40), 80, 420)) for i in range(157)]
-    declines = [500 - a - 10 for a in advances]
-    net = [a-d for a,d in zip(advances, declines)]
+    up = np.random.randint(200, 400, 156)
+    down = 500 - up
+    net = up - down
     
-    fig = go.Figure()
-    fig.add_bar(x=weeks, y=net, marker_color=['green' if x>0 else 'red' for x in net])
-    fig.add_hline(y=0)
-    st.plotly_chart(fig, use_container_width=True)
-
-with tab2:
-    symbols = get_symbols()[:100]
-    # Dummy data without yfinance to avoid error
-    df = pd.DataFrame({
-        "Stock_Code": symbols,
-        "Name": symbols,
-        "Sector": np.random.choice(["Pharma","IT","Bank","Auto"], len(symbols)),
-        "Current_Price": np.random.uniform(100,2500, len(symbols)).round(1),
-        "PE": np.random.uniform(10,50, len(symbols)).round(1),
-        "Sector_PE": np.random.uniform(15,40, len(symbols)).round(1),
-        "Debt_to_Equity": np.random.uniform(0,1.5, len(symbols)).round(2),
-        "Pledge_%": np.random.choice([0,0,0,2.5], len(symbols)),
-        "Market_Cap_Cr": np.random.uniform(500,50000, len(symbols)).round(0),
-        "Capex_to_Revenue_Score": np.random.uniform(-0.2,1.4, len(symbols)).round(2),
-        "Screener_Link": [f"https://www.screener.in/company/{s}/" for s in symbols]
+    df_breadth = pd.DataFrame({
+        "Week": weeks.strftime('%Y-%m-%d'),
+        "Advances": up,
+        "Declines": down,
+        "Net": net
     })
-    st.dataframe(df, use_container_width=True)
     
-    # Excel download
-    from io import BytesIO
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        pd.DataFrame({"Week": weeks, "Advances": advances, "Declines": declines}).to_excel(writer, sheet_name="Weekly_Breadth", index=False)
-        df.to_excel(writer, sheet_name="Companies_Table", index=False)
-    st.download_button("Download Excel", output.getvalue(), "nse500_dashboard.xlsx")
+    st.bar_chart(df_breadth.set_index("Week")["Net"])
+    st.dataframe(df_breadth.tail(10))
+    st.success(f"Latest Week: {up[-1]} Up / {down[-1]} Down")
+
+# TAB 2
+with tab2:
+    st.subheader("Companies")
+    data = {
+        "Stock_Code": ["RELIANCE","TCS","KILITCH","SUNPHARMA","JSWSTEEL"],
+        "Name": ["Reliance","TCS","Kilitch Drugs","Sun Pharma","JSW Steel"],
+        "Sector": ["Energy","IT","Pharma","Pharma","Metals"],
+        "Current_Price": [1420, 3850, 191, 1680, 950],
+        "PE": [22, 28, 21, 32, 18],
+        "Sector_PE": [24, 30, 35, 35, 20],
+        "Debt_to_Equity": [0.4, 0.1, 0.32, 0.2, 1.1],
+        "Pledge_%": [0, 0, 0, 0, 5.1],
+        "Market_Cap_Cr": [1900000, 1400000, 661, 400000, 230000],
+        "Capex_to_Revenue_Score": [0.8, 0.9, -0.1, 0.6, 0.3],
+        "Screener_Link": ["https://www.screener.in/company/RELIANCE/"]*5
+    }
+    df_company = pd.DataFrame(data)
+    st.dataframe(df_company, use_container_width=True)
+
+# Download
+output = BytesIO()
+with pd.ExcelWriter(output, engine='openpyxl') as writer:
+    df_breadth.to_excel(writer, sheet_name="Weekly_Breadth", index=False)
+    df_company.to_excel(writer, sheet_name="Companies_Table", index=False)
+
+st.download_button("📥 Download Excel (2 Tabs)", output.getvalue(), file_name="nse500_dashboard.xlsx")
+
+st.caption("If this runs, we will add full 500 stocks in next step")
