@@ -1,41 +1,25 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 
 # Page configuration
-st.set_page_config(page_title="Nifty 50 Weekly Dashboard", layout="wide")
+st.set_page_config(page_title="Nifty 500 Market Dashboard", layout="wide")
 
-st.title("📈 Nifty 50 Stocks Weekly Up/Down Dashboard (3 Years)")
-st.write("Yeh dashboard pichhle 3 saal ka weekly price movement (Open vs Close) bar chart ke roop me dikhata hai.")
+st.title("📈 Nifty 500 Market Trend & Breadth Dashboard (3 Years)")
+st.write("Yeh dashboard Nifty 500 index ka pichhle 3 saal ka trend aur market ki movement (Up/Down lines) ko darshata hai.")
 
-# Popular Nifty 50 stocks dictionary (Yahoo Finance symbols ke sath)
-nifty_stocks = {
-    "Reliance Industries": "RELIANCE.NS",
-    "TCS (Tata Consultancy Services)": "TCS.NS",
-    "HDFC Bank": "HDFCBANK.NS",
-    "Infosys": "INFY.NS",
-    "ICICI Bank": "ICICIBANK.NS",
-    "State Bank of India (SBI)": "SBIN.NS",
-    "Bharti Airtel": "BHARTIARTL.NS",
-    "ITC Limited": "ITC.NS",
-    "Larsen & Toubro (L&T)": "LT.NS",
-    "Kotak Mahindra Bank": "KOTAKBANK.NS"
-}
+# Nifty 500 Yahoo Finance Ticker Symbol
+ticker_symbol = "^CRSLIST" # Nifty 500 index ticker on Yahoo Finance
 
-# Dropdown menu to select stock
-selected_name = st.selectbox("Koi stock chunen:", list(nifty_stocks.keys()))
-ticker = nifty_stocks[selected_name]
-
-# Function to load data with caching for speed
 @st.cache_data
-def load_data(ticker_symbol):
-    # Fetching 3 years of weekly data
-    df = yf.download(ticker_symbol, period="3y", interval="1wk")
+def load_nifty500_data():
+    # Fetching 3 years of daily/weekly data for Nifty 500
+    df = yf.download("^CRSLIST", period="3y", interval="1wk")
     return df
 
-with st.spinner(f"Fetching data for {selected_name}..."):
-    data = load_data(ticker)
+with st.spinner("Nifty 500 ka 3 saal ka data load ho raha hai..."):
+    data = load_nifty500_data()
 
 if not data.empty:
     # Handling multi-index columns if returned by yfinance
@@ -44,42 +28,68 @@ if not data.empty:
         
     data = data.reset_index()
     
-    # Calculate weekly change (Close - Open)
-    data['Weekly_Change'] = data['Close'] - data['Open']
-    data['Color'] = data['Weekly_Change'].apply(lambda x: 'Green (Up)' if x >= 0 else 'Red (Down)')
+    # Calculate weekly price difference to check Up/Down movement
+    data['Price_Change'] = data['Close'] - data['Open']
+    data['Status'] = data['Price_Change'].apply(lambda x: 'Up' if x >= 0 else 'Down')
     data['Date'] = pd.to_datetime(data['Date']).dt.date
 
-    # Plotting interactive bar chart using Plotly
-    fig = px.bar(
-        data, 
-        x='Date', 
-        y='Weekly_Change', 
-        color='Color',
-        color_discrete_map={'Green (Up)': '#2ecc71', 'Red (Down)': '#e74c3c'},
-        title=f"{selected_name} - Weekly Up/Down Analysis (Last 3 Years)",
-        labels={'Weekly_Change': 'Price Change (Close - Open in INR)', 'Date': 'Week Starting'}
-    )
-    
+    # Creating a cumulative or rolling market movement line chart
+    fig = go.Figure()
+
+    # Line chart for Nifty 500 Closing Price trend
+    fig.add_trace(go.Scatter(
+        x=data['Date'], 
+        y=data['Close'],
+        mode='lines',
+        name='Nifty 500 Close Price',
+        line=dict(color='#3498db', width=2)
+    ))
+
     fig.update_layout(
+        title="Nifty 500 - 3 Year Weekly Price Trend Line Chart",
         xaxis_title="Hafte ki Taarikh",
-        yaxis_title="Price Difference (₹)",
-        template="plotly_dark"
+        yaxis_title="Index Value",
+        template="plotly_dark",
+        hovermode="x unified"
     )
     
     st.plotly_chart(fig, use_container_width=True)
-    
-    # Summary Metrics
+
+    # Market Breadth Representation (Simulated Up/Down count tracking based on momentum)
+    st.subheader("📊 Market Breadth: Weekly Up vs Down Momentum")
+    st.write("Pichhle 3 saalo me hafte-dar-hafte market ka rukh (Green vs Red weeks trend):")
+
+    # Bar/Line combination for Up/Down status count
+    up_weeks_count = len(data[data['Price_Change'] >= 0])
+    down_weeks_count = len(data[data['Price_Change'] < 0])
     total_weeks = len(data)
-    up_weeks = len(data[data['Weekly_Change'] >= 0])
-    down_weeks = len(data[data['Weekly_Change'] < 0])
-    
+
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Hafte (3 Years)", total_weeks)
-    col2.metric("Green Weeks (Up)", up_weeks, delta=f"{round((up_weeks/total_weeks)*100, 1)}%")
-    col3.metric("Red Weeks (Down)", down_weeks, delta=f"-{round((down_weeks/total_weeks)*100, 1)}%", delta_color="inverse")
+    col1.metric("Total Weeks Tracked", total_weeks)
+    col2.metric("Market Up Weeks", up_weeks_count, delta=f"{round((up_weeks_count/total_weeks)*100, 1)}%")
+    col3.metric("Market Down Weeks", down_weeks_count, delta=f"-{round((down_weeks_count/total_weeks)*100, 1)}%", delta_color="inverse")
+
+    # Line chart showing cumulative Up/Down momentum over 3 years
+    data['Cumulative_Trend'] = data['Price_Change'].cumsum()
     
-    # Show Raw Data Expander
-    with st.expander("Aakhri hafte ka Raw Data dekhein"):
-        st.write(data[['Date', 'Open', 'High', 'Low', 'Close', 'Weekly_Change']].tail(15))
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(
+        x=data['Date'],
+        y=data['Cumulative_Trend'],
+        mode='lines+markers',
+        name='Cumulative Trend',
+        line=dict(color='#2ecc71', width=2)
+    ))
+    fig2.update_layout(
+        title="Cumulative Market Momentum Line Chart (3 Years)",
+        xaxis_title="Date",
+        yaxis_title="Cumulative Score",
+        template="plotly_dark"
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+
+    # Raw data expander
+    with st.expander("Nifty 500 ka Raw Data dekhein"):
+        st.dataframe(data[['Date', 'Open', 'High', 'Low', 'Close', 'Price_Change', 'Status']])
 else:
-    st.error("Data load karne me samasya aayi. Kripya dobara koshish karein.")
+    st.error("Data load karne me error aayi. Kripya kuch der baad dobara koshish karein.")
